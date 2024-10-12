@@ -122,6 +122,7 @@ def MainAlerts():
                         PostText+=f"\n\nInstruction\n{alert['properties']['instruction']}"
 
                     postID = PostToFacebook(PostText)
+                    PostToInstagram(PostText, RadarImageURL)
                     ActiveWeatherAlerts.append([alert['id'], postID, PostText])
             else:
                 print("No New Alert")
@@ -156,6 +157,7 @@ def MainWeather():
             tonight = weather['properties']['periods'][1]
             PostText = f"{today['name']}\n{today['detailedForecast']}\n\n{tonight['name']}\n{tonight['detailedForecast']}"
             PostToFacebook(PostText)
+            PostToInstagram(PostText, RadarImageURL)
 
 def Main():
     WeatherProcess = multiprocessing.Process(target=MainWeather)
