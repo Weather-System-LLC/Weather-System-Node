@@ -7,8 +7,10 @@ import time
 
 FacebookToken = "FACEBOOKTOKEN"
 pageID = "PAGEID"
+InstagramID = "INSTAGRAMID"
 CountyCode = "COUNTYCODE"
 ForecastCode = "FORECASTCODE"
+RadarImageURL = "RADARIMAGEURL"
 ActiveWeatherAlerts = []
 LastRecordedWeatherSent = datetime.now().day-1
 if(LastRecordedWeatherSent == 0):
@@ -17,6 +19,43 @@ LastRecordedWeatherSent = datetime(1,1,LastRecordedWeatherSent)
 
 # Initialize the Graph API
 graph = facebook.GraphAPI(FacebookToken)
+
+def PostToInstagram(Message, ImageURl):
+    try:
+        create_media_url = f"https://graph.facebook.com/v20.0/{InstagramID}/media"
+        media_params = {
+            'image_url': ImageURl,
+            'caption': Message,
+            'access_token': FacebookToken
+        }
+        media_response = requests.post(create_media_url, params=media_params)
+
+        if media_response.status_code == 200:
+            media_id = media_response.json().get('id')
+            if media_id:
+                print("Media container created with ID:", media_id)
+
+                # Step 2: Publish the media container
+                publish_url = f"https://graph.facebook.com/v20.0/{InstagramID}/media_publish"
+                publish_params = {
+                    'creation_id': media_id,
+                    'access_token': FacebookToken
+                }
+                publish_response = requests.post(publish_url, params=publish_params)
+                if publish_response.status_code == 200:
+                    print("posted successfully on Instagram!")
+                else:
+                    # Error handling with details from the response
+                    error_details = publish_response.json().get('error', {})
+                    print(f"Error in publishing: {error_details.get('message', 'Unknown error')}")
+            else:
+                print("Failed to retrieve media container ID.")
+        else:
+            # Error handling with details from the response
+            error_details = media_response.json().get('error', {})
+            print(f"Error in media creation: {error_details.get('message', 'Unknown error')}, Code: {error_details.get('code', 'N/A')}, Type: {error_details.get('type', 'N/A')}")
+    except:
+        print("Error Occured")
 
 # Post the message to the page feed
 def PostToFacebook(Message):
