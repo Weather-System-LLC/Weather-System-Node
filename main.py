@@ -5,59 +5,91 @@ import facebook
 import requests
 import time
 
+
+#Facebook/Instagram
 FacebookToken = "FACEBOOKTOKEN"
-pageID = "PAGEID"
+pageID = "FACEBOOKID"
 InstagramID = "INSTAGRAMID"
 CountyCode = "COUNTYCODE"
 ForecastCode = "FORECASTCODE"
-RadarImageURL = "RADARIMAGEURL"
+RadarImageURL = "RADARURL"
+
+#Threads
+ThreadsToken = "THREADSTOKEN"
+ThreadsID = "THREADSID"
+
 ActiveWeatherAlerts = []
 LastRecordedWeatherSent = datetime.now().day-1
 if(LastRecordedWeatherSent == 0):
     LastRecordedWeatherSent = 28
 LastRecordedWeatherSent = datetime(1,1,LastRecordedWeatherSent)
 
-# Initialize the Graph API
 graph = facebook.GraphAPI(FacebookToken)
 
 def PostToInstagram(Message, ImageURl):
     try:
-        create_media_url = f"https://graph.facebook.com/v20.0/{InstagramID}/media"
         media_params = {
             'image_url': ImageURl,
             'caption': Message,
             'access_token': FacebookToken
         }
-        media_response = requests.post(create_media_url, params=media_params)
+        media_response = requests.post(f"https://graph.facebook.com/v20.0/{InstagramID}/media", params=media_params)
 
         if media_response.status_code == 200:
-            media_id = media_response.json().get('id')
-            if media_id:
-                print("Media container created with ID:", media_id)
-
-                # Step 2: Publish the media container
-                publish_url = f"https://graph.facebook.com/v20.0/{InstagramID}/media_publish"
+            media = media_response.json()
+            if "id" in media:
+                print("Media container created with ID:", media['id'])
                 publish_params = {
-                    'creation_id': media_id,
+                    'creation_id': media['id'],
                     'access_token': FacebookToken
                 }
-                publish_response = requests.post(publish_url, params=publish_params)
+                publish_response = requests.post(f"https://graph.facebook.com/v20.0/{InstagramID}/media_publish", params=publish_params)
                 if publish_response.status_code == 200:
                     print("posted successfully on Instagram!")
                 else:
-                    # Error handling with details from the response
                     error_details = publish_response.json().get('error', {})
                     print(f"Error in publishing: {error_details.get('message', 'Unknown error')}")
             else:
-                print("Failed to retrieve media container ID.")
+                print("Media didn't return ID.")
         else:
-            # Error handling with details from the response
             error_details = media_response.json().get('error', {})
             print(f"Error in media creation: {error_details.get('message', 'Unknown error')}, Code: {error_details.get('code', 'N/A')}, Type: {error_details.get('type', 'N/A')}")
     except:
         print("Error Occured")
 
-# Post the message to the page feed
+def PostToThreads(Message):
+    try:
+        ThreadsPostData = {
+            'text':Message,
+            'media_type': 'TEXT',
+            'access_token': ThreadsToken
+        }
+
+        MediaRequest = requests.post(f"https://graph.threads.net/v1.0/{ThreadsID}/threads", params=ThreadsPostData)
+        if(MediaRequest.status_code == 200):
+            media = MediaRequest.json()
+
+            if("id" in media):
+                print("Media container created with ID:", media['id'])
+                PostParams = {
+                    'creation_id':media['id'],
+                    'access_token':ThreadsToken
+                }
+                PostRequest = requests.post(f"https://graph.threads.net/v1.0/{ThreadsID}/threads_publish", params=PostParams)
+                if(PostRequest.status_code == 200):
+                    print("posted successfully on Threads!")
+                else:
+                    print(f"error {PostRequest.status_code} occured ")
+
+            else:
+                print("Media didn't return Id")
+            
+        else:
+            print(f"error {MediaRequest.status_code} occured media")
+
+    except:
+        print("Error Occured")
+
 def PostToFacebook(Message):
     try:
         response = graph.put_object(pageID, 'feed', message=Message)
@@ -122,7 +154,8 @@ def MainAlerts():
                         PostText+=f"\n\nInstruction\n{alert['properties']['instruction']}"
 
                     postID = PostToFacebook(PostText)
-                    PostToInstagram(PostText, RadarImageURL)
+                    PostToInstagram(f"\n{PostText}", RadarImageURL)
+                    PostToThreads(PostText)
                     ActiveWeatherAlerts.append([alert['id'], postID, PostText])
             else:
                 print("No New Alert")
@@ -157,7 +190,8 @@ def MainWeather():
             tonight = weather['properties']['periods'][1]
             PostText = f"{today['name']}\n{today['detailedForecast']}\n\n{tonight['name']}\n{tonight['detailedForecast']}"
             PostToFacebook(PostText)
-            PostToInstagram(PostText, RadarImageURL)
+            PostToInstagram(f"\n{PostText}", RadarImageURL)
+            PostToThreads(PostText)
 
 def Main():
     WeatherProcess = multiprocessing.Process(target=MainWeather)
