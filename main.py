@@ -8,17 +8,18 @@ import time
 
 #Facebook/Instagram
 FacebookToken = "FACEBOOKTOKEN"
-pageID = "FACEBOOKID"
+pageID = "FACEBOOKPAGEID"
 InstagramID = "INSTAGRAMID"
 CountyCode = "COUNTYCODE"
 ForecastCode = "FORECASTCODE"
-RadarImageURL = "RADARURL"
+RadarImageURL = "RADARIMAGEURL"
 
 #Threads
 ThreadsToken = "THREADSTOKEN"
 ThreadsID = "THREADSID"
 
 ActiveWeatherAlerts = []
+LastRecordedAlertData = None
 LastRecordedWeatherSent = datetime.now().day-1
 if(LastRecordedWeatherSent == 0):
     LastRecordedWeatherSent = 28
@@ -120,13 +121,14 @@ def GetAlerts():
         alerts = requests.get(f"https://api.weather.gov/alerts/active/zone/{CountyCode}")
         if alerts.status_code == 200:
             print("Request was successful!")
+            LastRecordedAlertData = alerts.json()['features']
             return alerts.json()['features']
         else:
             print(f"Request failed with status code: {alerts.status_code}")
-            return ActiveWeatherAlerts
+            return LastRecordedAlertData
     except:
         print('Error occured')
-        return ActiveWeatherAlerts
+        return LastRecordedAlertData
 
 def MainAlerts():
     while True:
@@ -138,12 +140,20 @@ def MainAlerts():
                     print("New Alert")
                     date = datetime.fromisoformat(alert['properties']['sent'])
                     PostText = ""
+                    ThreadsPostText = ""
                     if(not alert['properties']['parameters']['NWSheadline'] in ["", "null", None]):
                         PostText+=f"{alert['properties']['parameters']['NWSheadline'][0]}\n"
+                        ThreadsPostText+=f"{alert['properties']['parameters']['NWSheadline'][0]}\n"
+
                     else:
                         PostText+=f"{alert['properties']['event']}\n"
+                        ThreadsPostText+=f"{alert['properties']['event']}\n"
 
                     PostText += f"{alert['properties']['headline']}\n\nSeverity\n{alert['properties']['severity']}"
+                    ThreadsPostText+=f"{alert['properties']['headline']}\n\nSeverity\n{alert['properties']['severity']}"
+
+                    FixedID = str(alert['id']).replace("https://api.weather.gov/alerts/", "")
+                    ThreadsPostText+=f"\n\nClick here for more info!\nhttps://programer-turtle.github.io/WeatherSystem/Alerts?{FixedID}"
 
                     if not alert['properties']['certainty'] in ["", "null", None]:
                         PostText+=f"\n\nCertainty\n{alert['properties']['certainty']}"
@@ -155,7 +165,7 @@ def MainAlerts():
 
                     postID = PostToFacebook(PostText)
                     PostToInstagram(f"\n{PostText}", RadarImageURL)
-                    PostToThreads(PostText)
+                    PostToThreads(ThreadsPostText)
                     ActiveWeatherAlerts.append([alert['id'], postID, PostText])
             else:
                 print("No New Alert")
