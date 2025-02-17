@@ -1,25 +1,31 @@
 from datetime import datetime
+from datetime import date
 import multiprocessing
 import multiprocessing.process
 import facebook
 import requests
 import time
+import os
 
 
 #Facebook/Instagram
-FacebookToken = "FACEBOOKTOKEN"
-pageID = "FACEBOOKPAGEID"
-InstagramID = "INSTAGRAMID"
-CountyCode = "COUNTYCODE"
-ForecastCode = "FORECASTCODE"
-RadarImageURL = "RADARIMAGEURL"
+FacebookToken = "FacebookToken"
+pageID = "PageID"
+InstagramID = "InstagramID"
+CountyName = "CountyName"
+CountyCode = "CountyCode"
+ForecastCode = "ForecastCode"
+RadarImageURL = "RadarImage"
 
 #Threads
-ThreadsToken = "THREADSTOKEN"
-ThreadsID = "THREADSID"
+ThreadsToken = "ThreadsToken"
+ThreadsID = "ThreadsID"
+
+#Paths
+DiscordQueue = r"PATH"
 
 ActiveWeatherAlerts = []
-LastRecordedAlertData = None
+LastRecordedAlertData = ''
 LastRecordedWeatherSent = datetime.now().day-1
 if(LastRecordedWeatherSent == 0):
     LastRecordedWeatherSent = 28
@@ -121,6 +127,7 @@ def GetAlerts():
         alerts = requests.get(f"https://api.weather.gov/alerts/active/zone/{CountyCode}")
         if alerts.status_code == 200:
             print("Request was successful!")
+            global LastRecordedAlertData
             LastRecordedAlertData = alerts.json()['features']
             return alerts.json()['features']
         else:
@@ -141,31 +148,46 @@ def MainAlerts():
                     date = datetime.fromisoformat(alert['properties']['sent'])
                     PostText = ""
                     ThreadsPostText = ""
+                    DiscordEmbed = {"Type":"Alert", "County":CountyName}
                     if(not alert['properties']['parameters']['NWSheadline'] in ["", "null", None]):
-                        PostText+=f"{alert['properties']['parameters']['NWSheadline'][0]}\n"
-                        ThreadsPostText+=f"{alert['properties']['parameters']['NWSheadline'][0]}\n"
+                        NWSHeadline = f"{alert['properties']['parameters']['NWSheadline'][0]}"
+                        PostText+=f"{NWSHeadline}\n"
+                        ThreadsPostText+=f"{NWSHeadline}\n"
+                        DiscordEmbed["Title"] = f"{CountyName} County {NWSHeadline}"
 
                     else:
-                        PostText+=f"{alert['properties']['event']}\n"
-                        ThreadsPostText+=f"{alert['properties']['event']}\n"
+                        Event = f"{alert['properties']['event']}\n"
+                        PostText+=f"{Event}\n"
+                        ThreadsPostText+=f"{Event}\n"
+                        DiscordEmbed["Title"] = f"{CountyName} County {Event}"
 
                     PostText += f"{alert['properties']['headline']}\n\nSeverity\n{alert['properties']['severity']}"
                     ThreadsPostText+=f"{alert['properties']['headline']}\n\nSeverity\n{alert['properties']['severity']}"
+                    DiscordEmbed["Headline"] = alert['properties']['headline']
+                    DiscordEmbed["Severity"] = alert['properties']['severity']
 
                     FixedID = str(alert['id']).replace("https://api.weather.gov/alerts/", "")
                     ThreadsPostText+=f"\n\nClick here for more info!\nhttps://programer-turtle.github.io/WeatherSystem/Alerts?{FixedID}"
 
                     if not alert['properties']['certainty'] in ["", "null", None]:
                         PostText+=f"\n\nCertainty\n{alert['properties']['certainty']}"
+                        DiscordEmbed["Certainty"] = alert['properties']['certainty']
 
                     PostText+=f"\n\nDescription\n{alert['properties']['description']}"
+                    DiscordEmbed["Description"] = alert['properties']['description']
 
                     if not alert['properties']['instruction'] in ["", "null", None]:
                         PostText+=f"\n\nInstruction\n{alert['properties']['instruction']}"
+                        DiscordEmbed["Instruction"] = alert['properties']['instruction']
 
                     postID = PostToFacebook(PostText)
                     PostToInstagram(f"\n{PostText}", RadarImageURL)
                     PostToThreads(ThreadsPostText)
+                    try:
+                        with open(os.path.join(DiscordQueue, f"{postID}.txt"), "w") as file:
+                            file.write(str(DiscordEmbed))
+                    except:
+                        print("Error with discord")
                     ActiveWeatherAlerts.append([alert['id'], postID, PostText])
             else:
                 print("No New Alert")
@@ -202,6 +224,23 @@ def MainWeather():
             PostToFacebook(PostText)
             PostToInstagram(f"\n{PostText}", RadarImageURL)
             PostToThreads(PostText)
+            try:
+                with open(os.path.join(DiscordQueue, f"Today.txt"), "w") as file:
+                            file.write(str({"Type":"Forecast", "County":CountyName, "Today":today, "Tonight":tonight}))
+            except Exception as e:
+                print(f"Error with discord {e}")
+                
+            today = date.today()
+            Christmas = datetime(today.year, 12 ,25)
+
+
+            if(Christmas.month == today.month) and (today.day <= Christmas.day):
+                days = Christmas.day-today.day
+                if(days == 0):
+                    PostToFacebook("It's Christmas Today!")
+                else:
+                    PostToFacebook(f"{days} days until Christmas!")
+                    
 
 def Main():
     WeatherProcess = multiprocessing.Process(target=MainWeather)
