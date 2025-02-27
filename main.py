@@ -12,10 +12,12 @@ import os
 FacebookToken = "FacebookToken"
 pageID = "PageID"
 InstagramID = "InstagramID"
+StateName = "StateName"
 CountyName = "CountyName"
 CountyCode = "CountyCode"
 ForecastCode = "ForecastCode"
 RadarImageURL = "RadarImage"
+WeatherSystemCode = "WeatherSystemCode"
 
 #Threads
 ThreadsToken = "ThreadsToken"
@@ -32,6 +34,19 @@ if(LastRecordedWeatherSent == 0):
 LastRecordedWeatherSent = datetime(1,1,LastRecordedWeatherSent)
 
 graph = facebook.GraphAPI(FacebookToken)
+
+def SendToWeatherSystem(Message):
+    SystemParams = {
+        "state":StateName,
+        "county":CountyName,
+        "token":WeatherSystemCode,
+        "weatherData":Message
+    }
+    SystemResponse = requests.post("https://weather.informapi.xyz/SendWeatherAlertsNode", params=SystemParams)
+    if(SystemResponse.status_code == 200):
+        print("Message Sent to Weather System.")
+    else:
+        print("Message to Weather System Failed")
 
 def PostToInstagram(Message, ImageURl):
     try:
@@ -180,6 +195,7 @@ def MainAlerts():
                         PostText+=f"\n\nInstruction\n{alert['properties']['instruction']}"
                         DiscordEmbed["Instruction"] = alert['properties']['instruction']
 
+                    SendToWeatherSystem(PostText)
                     postID = PostToFacebook(PostText)
                     PostToInstagram(f"\n{PostText}", RadarImageURL)
                     PostToThreads(ThreadsPostText)
@@ -221,6 +237,7 @@ def MainWeather():
             today = weather['properties']['periods'][0]
             tonight = weather['properties']['periods'][1]
             PostText = f"{today['name']}\n{today['detailedForecast']}\n\n{tonight['name']}\n{tonight['detailedForecast']}"
+            SendToWeatherSystem(PostText)
             PostToFacebook(PostText)
             PostToInstagram(f"\n{PostText}", RadarImageURL)
             PostToThreads(PostText)
