@@ -2,29 +2,22 @@ from datetime import datetime
 from datetime import date
 import multiprocessing
 import multiprocessing.process
+from dotenv import load_dotenv
 import facebook
 import requests
 import time
+import ImageCast
 import os
 
+load_dotenv()
 
-#Facebook/Instagram
-FacebookToken = "FacebookToken"
-pageID = "PageID"
-InstagramID = "InstagramID"
-StateName = "StateName"
-CountyName = "CountyName"
-CountyCode = "CountyCode"
-ForecastCode = "ForecastCode"
-RadarImageURL = "RadarImage"
-WeatherSystemCode = "WeatherSystemCode"
-
-#Threads
-ThreadsToken = "ThreadsToken"
-ThreadsID = "ThreadsID"
-
-#Paths
-DiscordQueue = r"PATH"
+#Facebook/Instagram 
+FacebookToken = os.getenv("FacebookToken")
+pageID = os.getenv("PageID")
+StateName = os.getenv("StateName")
+CountyName = os.getenv("CountyName")
+CountyCode = os.getenv("CountyCode")
+ForecastCode = os.getenv("ForecastCode")
 
 ActiveWeatherAlerts = []
 LastRecordedAlertData = ''
@@ -35,83 +28,6 @@ LastRecordedWeatherSent = datetime(1,1,LastRecordedWeatherSent)
 
 graph = facebook.GraphAPI(FacebookToken)
 
-def SendToWeatherSystem(Message):
-    SystemParams = {
-        "state":StateName,
-        "county":CountyName,
-        "token":WeatherSystemCode,
-        "weatherData":Message
-    }
-    SystemResponse = requests.post("https://weather.informapi.xyz/SendWeatherAlertsNode", params=SystemParams)
-    if(SystemResponse.status_code == 200):
-        print("Message Sent to Weather System.")
-    else:
-        print("Message to Weather System Failed")
-
-def PostToInstagram(Message, ImageURl):
-    try:
-        media_params = {
-            'image_url': ImageURl,
-            'caption': Message,
-            'access_token': FacebookToken
-        }
-        media_response = requests.post(f"https://graph.facebook.com/v20.0/{InstagramID}/media", params=media_params)
-
-        if media_response.status_code == 200:
-            media = media_response.json()
-            if "id" in media:
-                print("Media container created with ID:", media['id'])
-                publish_params = {
-                    'creation_id': media['id'],
-                    'access_token': FacebookToken
-                }
-                publish_response = requests.post(f"https://graph.facebook.com/v20.0/{InstagramID}/media_publish", params=publish_params)
-                if publish_response.status_code == 200:
-                    print("posted successfully on Instagram!")
-                else:
-                    error_details = publish_response.json().get('error', {})
-                    print(f"Error in publishing: {error_details.get('message', 'Unknown error')}")
-            else:
-                print("Media didn't return ID.")
-        else:
-            error_details = media_response.json().get('error', {})
-            print(f"Error in media creation: {error_details.get('message', 'Unknown error')}, Code: {error_details.get('code', 'N/A')}, Type: {error_details.get('type', 'N/A')}")
-    except:
-        print("Error Occured")
-
-def PostToThreads(Message):
-    try:
-        ThreadsPostData = {
-            'text':Message,
-            'media_type': 'TEXT',
-            'access_token': ThreadsToken
-        }
-
-        MediaRequest = requests.post(f"https://graph.threads.net/v1.0/{ThreadsID}/threads", params=ThreadsPostData)
-        if(MediaRequest.status_code == 200):
-            media = MediaRequest.json()
-
-            if("id" in media):
-                print("Media container created with ID:", media['id'])
-                PostParams = {
-                    'creation_id':media['id'],
-                    'access_token':ThreadsToken
-                }
-                PostRequest = requests.post(f"https://graph.threads.net/v1.0/{ThreadsID}/threads_publish", params=PostParams)
-                if(PostRequest.status_code == 200):
-                    print("posted successfully on Threads!")
-                else:
-                    print(f"error {PostRequest.status_code} occured ")
-
-            else:
-                print("Media didn't return Id")
-            
-        else:
-            print(f"error {MediaRequest.status_code} occured media")
-
-    except:
-        print("Error Occured")
-
 def PostToFacebook(Message):
     try:
         response = graph.put_object(pageID, 'feed', message=Message)
@@ -119,6 +35,15 @@ def PostToFacebook(Message):
         return response['id']
     except facebook.GraphAPIError as e:
         print('An error occurred:', e)
+
+def PostImageToFacebook():
+    try:
+        with open("output.jpg", "rb") as image_file:
+            response = graph.put_photo(image=image_file, message="")
+        print("Photo posted! ID:", response['id'])
+        return response['id']
+    except facebook.GraphAPIError as e:
+        print("Error posting photo:", e)
 
 def EditFacebookPost(MessageID, Message):
     try:
@@ -164,7 +89,7 @@ def MainAlerts():
                     PostText = ""
                     ThreadsPostText = ""
                     DiscordEmbed = {"Type":"Alert", "County":CountyName}
-                    if(not alert['properties']['parameters']['NWSheadline'] in ["", "null", None]):
+                    if(not alert['properties']['parameters'].get('NWSheadline', "") in ["", "null", None]):
                         NWSHeadline = f"{alert['properties']['parameters']['NWSheadline'][0]}"
                         PostText+=f"{NWSHeadline}\n"
                         ThreadsPostText+=f"{NWSHeadline}\n"
@@ -177,33 +102,16 @@ def MainAlerts():
                         DiscordEmbed["Title"] = f"{CountyName} County {Event}"
 
                     PostText += f"{alert['properties']['headline']}\n\nSeverity\n{alert['properties']['severity']}"
-                    ThreadsPostText+=f"{alert['properties']['headline']}\n\nSeverity\n{alert['properties']['severity']}"
-                    DiscordEmbed["Headline"] = alert['properties']['headline']
-                    DiscordEmbed["Severity"] = alert['properties']['severity']
-
-                    FixedID = str(alert['id']).replace("https://api.weather.gov/alerts/", "")
-                    ThreadsPostText+=f"\n\nClick here for more info!\nhttps://programer-turtle.github.io/WeatherSystem/Alerts?{FixedID}"
 
                     if not alert['properties']['certainty'] in ["", "null", None]:
                         PostText+=f"\n\nCertainty\n{alert['properties']['certainty']}"
-                        DiscordEmbed["Certainty"] = alert['properties']['certainty']
 
                     PostText+=f"\n\nDescription\n{alert['properties']['description']}"
-                    DiscordEmbed["Description"] = alert['properties']['description']
 
                     if not alert['properties']['instruction'] in ["", "null", None]:
                         PostText+=f"\n\nInstruction\n{alert['properties']['instruction']}"
-                        DiscordEmbed["Instruction"] = alert['properties']['instruction']
 
-                    SendToWeatherSystem(PostText)
                     postID = PostToFacebook(PostText)
-                    PostToInstagram(f"\n{PostText}", RadarImageURL)
-                    PostToThreads(ThreadsPostText)
-                    try:
-                        with open(os.path.join(DiscordQueue, f"{postID}.txt"), "w") as file:
-                            file.write(str(DiscordEmbed))
-                    except:
-                        print("Error with discord")
                     ActiveWeatherAlerts.append([alert['id'], postID, PostText])
             else:
                 print("No New Alert")
@@ -230,22 +138,18 @@ def MainWeather():
     global LastRecordedWeatherSent
     while True:
         time.sleep(1)
-        if datetime.now().hour == 6 and datetime.now().day != LastRecordedWeatherSent.day:
+        if datetime.now().hour == 14 and datetime.now().day != LastRecordedWeatherSent.day:
             LastRecordedWeatherSent = datetime.now()
             LastRecordedWeatherSent = LastRecordedWeatherSent.replace(hour=6, minute=0, second=0, microsecond=0)
             weather = GetWeather()
             today = weather['properties']['periods'][0]
             tonight = weather['properties']['periods'][1]
+            FormattedData = [[today["name"], today['detailedForecast']], [tonight["name"], tonight['detailedForecast']]]
             PostText = f"{today['name']}\n{today['detailedForecast']}\n\n{tonight['name']}\n{tonight['detailedForecast']}"
-            SendToWeatherSystem(PostText)
-            PostToFacebook(PostText)
-            PostToInstagram(f"\n{PostText}", RadarImageURL)
-            PostToThreads(PostText)
-            try:
-                with open(os.path.join(DiscordQueue, f"Today.txt"), "w") as file:
-                            file.write(str({"Type":"Forecast", "County":CountyName, "Today":today, "Tonight":tonight}))
-            except Exception as e:
-                print(f"Error with discord {e}")
+            # PostToFacebook(PostText)
+            ImageCast.ForecastImage(FormattedData)
+            PostImageToFacebook()
+
                 
             today = date.today()
             Christmas = datetime(today.year, 12 ,25)
