@@ -14,8 +14,6 @@ load_dotenv()
 #Facebook/Instagram 
 FacebookToken = os.getenv("FacebookToken")
 pageID = os.getenv("PageID")
-StateName = os.getenv("StateName")
-CountyName = os.getenv("CountyName")
 CountyCode = os.getenv("CountyCode")
 ForecastCode = os.getenv("ForecastCode")
 
@@ -87,19 +85,13 @@ def MainAlerts():
                     print("New Alert")
                     date = datetime.fromisoformat(alert['properties']['sent'])
                     PostText = ""
-                    ThreadsPostText = ""
-                    DiscordEmbed = {"Type":"Alert", "County":CountyName}
                     if(not alert['properties']['parameters'].get('NWSheadline', "") in ["", "null", None]):
                         NWSHeadline = f"{alert['properties']['parameters']['NWSheadline'][0]}"
                         PostText+=f"{NWSHeadline}\n"
-                        ThreadsPostText+=f"{NWSHeadline}\n"
-                        DiscordEmbed["Title"] = f"{CountyName} County {NWSHeadline}"
 
                     else:
                         Event = f"{alert['properties']['event']}\n"
                         PostText+=f"{Event}\n"
-                        ThreadsPostText+=f"{Event}\n"
-                        DiscordEmbed["Title"] = f"{CountyName} County {Event}"
 
                     PostText += f"{alert['properties']['headline']}\n\nSeverity\n{alert['properties']['severity']}"
 
@@ -138,7 +130,7 @@ def MainWeather():
     global LastRecordedWeatherSent
     while True:
         time.sleep(1)
-        if datetime.now().hour == 14 and datetime.now().day != LastRecordedWeatherSent.day:
+        if datetime.now().hour == 8 and datetime.now().day != LastRecordedWeatherSent.day:
             LastRecordedWeatherSent = datetime.now()
             LastRecordedWeatherSent = LastRecordedWeatherSent.replace(hour=6, minute=0, second=0, microsecond=0)
             weather = GetWeather()
