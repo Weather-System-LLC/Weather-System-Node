@@ -42,7 +42,7 @@ def WrapText(Text):
 
 
 def ForecastImage(Forecast):
-    DeterminedBackground = DetermineBackground((Forecast[0][1] + Forecast[1][1]).lower())
+    DeterminedBackground = DetermineBackground((Forecast[0][1].lower() + Forecast[1][1]).lower())
     background = Image.open(DeterminedBackground).convert("RGB")
     background = background.resize((2400, 1800))
     overlay = Image.open("Resources/Photos/Credits.png")
