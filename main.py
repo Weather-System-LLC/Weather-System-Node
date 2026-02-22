@@ -18,7 +18,9 @@ CountyCode = os.getenv("CountyCode")
 ForecastCode = os.getenv("ForecastCode")
 
 ActiveWeatherAlerts = []
+ActiveDiscussions = {}
 LastRecordedAlertData = ''
+previous_mesoscale_json = {"features":[]}
 LastRecordedWeatherSent = datetime.now().day-1
 if(LastRecordedWeatherSent == 0):
     LastRecordedWeatherSent = 28
@@ -49,6 +51,19 @@ def EditFacebookPost(MessageID, Message):
         print('Post was edited.')
     except facebook.GraphAPIError as e:
         print('An error occurred:', e)
+
+def get_mesoscale_discussions():
+    try:
+        response = requests.get("https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/spc_mesoscale_discussion/MapServer/0/query?where=1=1&outFields=*&f=geojson")
+        if(response.status_code == 200):
+            return response.json()
+        else:
+            print(f"Error {response.status_code} Occured")
+            previous_mesoscale_json
+    except:
+        print("Unknow Error Occured")
+        return previous_mesoscale_json
+
 
 def GetWeather():
     weather = requests.get(f"https://api.weather.gov/zones/forecast/{ForecastCode}/forecast")
@@ -120,6 +135,8 @@ def MainAlerts():
         for values in range(0, len(alertsToDelete)):
             index = len(alertsToDelete) - (values+1)
             ActiveWeatherAlerts.pop(index)
+
+        # discussions = get_mesoscale_discussions()
             
         time.sleep(5)
 

@@ -21,24 +21,25 @@ def DetermineBackground(ForecastText):
         return "Resources/Photos/Sunny.png"
 
 
+# 53
 def WrapText(Text):
-    if(len(Text)<40):
+    if(len(Text)<=57):
         return Text
     
-    index = 0
-    LastSpaceIndex = 0
-    NextMax= 52
-    while index < len(Text):
-        CurrentChar = Text[index]
-        if(CurrentChar == " "):
-            LastSpaceIndex = index
+    lines = []
+    words = Text.split(" ")
 
-        if(index == NextMax):
-            Text= Text[:LastSpaceIndex] + "\n" + Text[LastSpaceIndex:]
-            NextMax += 53
-        index+=1
+    current_line = []
+    for index, word in enumerate(words):
+        if (len(" ".join(current_line)) + len(word) > 57):
+            lines.append(" ".join(current_line))
+            current_line = []
+        current_line.append(word)
     
-    return Text
+    lines.append(" ".join(current_line))
+    final_text = "\n".join(lines)
+    return final_text
+            
 
 
 def ForecastImage(Forecast):
@@ -69,7 +70,7 @@ def ForecastImage(Forecast):
     Text = WrapText(Forecast[0][1])
     draw.text((30, 200), Text, font=body_title, fill="white")
 
-    AddAmount = 500 + math.ceil(len(Text)/53)*30
+    AddAmount = 500 + len(Text.split("\n"))*45
 
     draw.text((30, AddAmount), Forecast[1][0], font=font_title, fill="white")
     Text = WrapText(Forecast[1][1])
