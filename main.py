@@ -149,7 +149,7 @@ def MainWeather():
         time.sleep(1)
         if datetime.now().hour == 8 and datetime.now().day != LastRecordedWeatherSent.day:
             LastRecordedWeatherSent = datetime.now()
-            LastRecordedWeatherSent = LastRecordedWeatherSent.replace(hour=6, minute=0, second=0, microsecond=0)
+            LastRecordedWeatherSent = LastRecordedWeatherSent.replace(hour=8, minute=0, second=0, microsecond=0)
             weather = GetWeather()
             today = weather['properties']['periods'][0]
             tonight = weather['properties']['periods'][1]
