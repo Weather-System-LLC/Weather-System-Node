@@ -1,0 +1,25 @@
+{
+  "holidays": [
+    {
+      "name": "New Year's Day",
+      "type": "fixed",
+      "date": [1, 1]
+    },
+    {
+      "name": "Valentine's Day",
+      "type": "fixed",
+      "date": [2, 14]
+    },
+    {
+      "name": "Easter",
+      "type": "auto",
+      "comment": "Script automatically calculates at startup and when year changes"
+    },
+    {
+      "name": "Independence Day",
+      "type": "range",
+      "start": [6, 29],
+      "end": [7, 9]
+    }
+  ]
+}
